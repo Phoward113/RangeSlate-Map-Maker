@@ -35,6 +35,7 @@
   .mapcard img{width:150px;aspect-ratio:800/480;background:#fff;border-radius:4px;display:block}
   .mapcard .nm{font-weight:700;word-break:break-all}
   .mapcard .dt{color:var(--muted);font-size:12.5px;margin:2px 0 8px}
+  .btnlink{display:inline-block;font:600 14px system-ui;background:var(--accent);color:var(--ink);padding:9px 13px;border-radius:7px;text-decoration:none}
   .empty{color:var(--muted);background:var(--panel);border:1px dashed var(--line);border-radius:10px;padding:18px;text-align:center}
   input.name{width:100%;font-size:15px;padding:9px 10px;border-radius:7px;border:1px solid var(--line);background:#111;color:var(--text);margin-top:10px}
   @media (max-width:520px){ .mapcard{grid-template-columns:1fr} .mapcard img{width:100%} }
@@ -147,6 +148,16 @@
   </aside>
 </div>
 <div class="send" id="pageSend" hidden>
+  <div id="sendHelp" class="mapcard" style="display:block;border-color:var(--accent)" hidden>
+    <div class="nm" style="color:var(--accent)">Saved <span id="sendName"></span> to your Downloads</div>
+    <ol class="steps" style="margin-top:8px">
+      <li>Make sure your phone is on the X4's Wi-Fi.</li>
+      <li>Tap <b>Open X4 page</b>. If it opens in Chrome, copy the address into <b>Samsung Internet</b> instead.</li>
+      <li>Open the <b>rangecard</b> folder, tap upload, and pick the map from <b>Downloads</b>. The file name must end in <b>.png</b> (for example <b>Back-40.png</b>), or the X4 won't show it.</li>
+    </ol>
+    <div class="row" style="margin-top:10px"><a id="x4go" class="btnlink" href="http://192.168.4.1/" target="_blank">Open X4 page</a>
+      <button type="button" onclick="$('sendHelp').hidden=true">Done</button></div>
+  </div>
   <h2>Maps kept on this phone</h2>
   <div class="maps" id="mapList"></div>
 
@@ -155,18 +166,18 @@
     <button type="button" data-addr="http://192.168.4.1" class="on">192.168.4.1</button>
     <button type="button" data-addr="http://rangeslate.local">rangeslate.local</button>
   </div>
-  <p class="note">Try 192.168.4.1 first. Maps go into the <b>rangecard</b> folder on the X4's SD card.</p>
+  <p class="note">Try 192.168.4.1 first. Upload maps into the <b>rangecard</b> folder on the X4's SD card.</p>
 
   <h2>How to send</h2>
   <ol class="steps">
     <li>Make your maps on the Make Map page while you have internet, and tap <b>Keep for X4</b>.</li>
     <li>On the X4, turn on file transfer and scan its QR code to join the X4's Wi-Fi.</li>
-    <li>Come back here and tap <b>Send to X4</b> on a map.</li>
-    <li>A page from the X4 opens. <b>"File uploaded successfully"</b> means it worked. If your phone warns the page "isn't secure", choose to send anyway — the X4 only talks over its own Wi-Fi.</li>
+    <li>Tap <b>Send to X4</b> on a map. It saves the map to your Downloads.</li>
+    <li>Tap <b>Open X4 page</b>, open the <b>rangecard</b> folder and upload the map. Use <b>Samsung Internet</b> for this step — Chrome often can't reach the X4.</li>
+    <li>The file name must end in <b>.png</b>. RangeSlate names maps this way for you; if you rename one, keep the <b>.png</b> at the end.</li>
   </ol>
-  <p class="note" style="margin-top:12px">Backup: <a id="x4open" href="http://192.168.4.1/" target="_blank" style="color:var(--accent)">open the X4's own upload page</a> and upload a saved PNG by hand.</p>
+  <p class="note" style="margin-top:12px">X4 upload page: <a id="x4open" href="http://192.168.4.1/" target="_blank" style="color:var(--accent)">192.168.4.1</a></p>
 </div>
-<form id="xform" method="post" enctype="multipart/form-data" target="_blank" hidden><input type="file" name="file" id="xfile"></form>
 <div id="zoomBox" hidden><div class="in"><button id="zclose" type="button">Close</button><canvas id="zc" width="800" height="480"></canvas></div></div>
 
 <script>
@@ -193,8 +204,9 @@ $('tMake').onclick = () => showPage('make');
 $('tSend').onclick = () => showPage('send');
 document.querySelectorAll('[data-addr]').forEach(b => { b.classList.toggle('on', b.dataset.addr === X4);
   b.onclick = () => { X4 = b.dataset.addr; try{ localStorage.setItem('x4addr', X4); }catch(e){}
-    document.querySelectorAll('[data-addr]').forEach(o => o.classList.toggle('on', o === b)); $('x4open').href = X4 + '/'; }; });
-$('x4open').href = X4 + '/';
+    document.querySelectorAll('[data-addr]').forEach(o => o.classList.toggle('on', o === b)); setX4Links(); }; });
+function setX4Links(){ $('x4open').href = $('x4go').href = X4 + '/'; $('x4open').textContent = X4.replace('http://',''); }
+setX4Links();
 
 async function listMaps(){
   const box = $('mapList'); let maps = [];
@@ -215,11 +227,11 @@ async function listMaps(){
   }
 }
 function sendToX4(m){
-  // Sent as an ordinary upload form, which the X4's own page accepts; the X4 answers in a new tab.
-  const f = new File([m.blob], m.name, { type:'image/png' }), dt = new DataTransfer(); dt.items.add(f);
-  $('xfile').files = dt.files;
-  $('xform').action = X4 + '/upload?path=' + encodeURIComponent('/rangecard');
-  $('xform').submit();
+  // Phones block internet pages from sending straight to local devices, so: save the map, then upload it on the X4's own page.
+  const url = URL.createObjectURL(m.blob), a = document.createElement('a');
+  a.href = url; a.download = m.name; document.body.appendChild(a); a.click(); a.remove();
+  $('sendName').textContent = m.name; $('sendHelp').hidden = false;
+  $('sendHelp').scrollIntoView({ behavior:'smooth', block:'start' });
 }
 if('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 </script>
