@@ -1,6 +1,6 @@
 // RangeSlate offline helper: keeps the app on the phone so the "Send to X4" page
 // still opens while the phone is joined to the X4's Wi-Fi (no internet there).
-const CACHE = 'rangeslate-v3';
+const CACHE = 'rangeslate-v5';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './apple-touch-icon.png', './icon-192.png', './icon-512.png',
   'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css',
   'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js',
