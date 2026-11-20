@@ -58,7 +58,7 @@
   .tag{text-align:center;letter-spacing:.35em;font-weight:700;font-size:12px;color:var(--accent);margin:8px 0 6px}
   input[type=range]{accent-color:var(--accent);flex:1}
   .rot{display:flex;gap:8px;align-items:center;margin-top:8px}
-  .rot output{min-width:44px;text-align:right;color:var(--accent);font-weight:700;font-variant-numeric:tabular-nums}
+  .rot output{min-width:58px;text-align:right;color:var(--accent);font-weight:700;font-variant-numeric:tabular-nums}
   #north{position:absolute;right:12px;top:12px;z-index:600;width:44px;height:44px;border-radius:50%;background:#fff;border:2px solid #222;display:grid;place-items:center;cursor:pointer;padding:0}
   #north svg{transition:transform .1s}
   h1{font:800 24px/1 system-ui;letter-spacing:.06em;margin:0 0 4px;text-transform:uppercase}
@@ -112,12 +112,18 @@
 
     <h2>1 · Frame</h2>
     <div class="rot">
+      <button id="zOut" type="button" title="Zoom out">−</button>
+      <input type="range" id="zoomBar" min="5" max="20" value="8" step="0.125">
+      <button id="zIn" type="button" title="Zoom in">+</button>
+      <output id="zoomV">–</output>
+    </div>
+    <div class="rot">
       <button id="rL" type="button" title="Rotate left">⟲</button>
       <input type="range" id="rot" min="-180" max="180" value="0" step="1">
       <button id="rR" type="button" title="Rotate right">⟳</button>
       <output id="rotV">0°</output>
     </div>
-    <p class="note">Rotate with the slider, two fingers on a touchscreen, or hold Shift and drag. Tap the compass to put north back up.</p>
+    <p class="note">Top bar zooms; the number is how wide the gold box is. Bottom bar rotates — or use two fingers on a touchscreen, or hold Shift and drag. Tap the compass to put north back up.</p>
 
     <h2>2 · Look</h2>
     <div class="row" id="looks">
@@ -153,10 +159,11 @@
     <div class="nm" style="color:var(--accent)">Saved <span id="sendName"></span> to your Downloads</div>
     <ol class="steps" style="margin-top:8px">
       <li>Make sure your phone is on the X4's Wi-Fi.</li>
-      <li>Tap <b>Open X4 page</b>. If it opens in Chrome, copy the address into <b>Samsung Internet</b> instead.</li>
+      <li>Tap <b>Open X4 page</b>. On Android it opens in <b>Samsung Internet</b>, which can reach the X4. If nothing opens, tap <b>Copy address</b> and paste it into Samsung Internet.</li>
       <li>Open the <b>rangecard</b> folder, tap upload, and pick the map from <b>Downloads</b>. The file name must end in <b>.png</b> (for example <b>Back-40.png</b>), or the X4 won't show it.</li>
     </ol>
     <div class="row" style="margin-top:10px"><a id="x4go" class="btnlink" href="http://192.168.4.1/" target="_blank">Open X4 page</a>
+      <button type="button" id="x4copy">Copy address</button>
       <button type="button" onclick="$('sendHelp').hidden=true">Done</button></div>
   </div>
   <h2>Maps kept on this phone</h2>
@@ -174,7 +181,7 @@
     <li>Make your maps on the Create Map page while you have internet, and tap <b>Keep for Data Card</b>.</li>
     <li>On the X4, turn on file transfer and scan its QR code to join the X4's Wi-Fi.</li>
     <li>Tap <b>Send to Data Card</b> on a map. It saves the map to your Downloads.</li>
-    <li>Tap <b>Open X4 page</b>, open the <b>rangecard</b> folder and upload the map. Use <b>Samsung Internet</b> for this step — Chrome often can't reach the X4.</li>
+    <li>Tap <b>Open X4 page</b>, open the <b>rangecard</b> folder and upload the map.</li>
     <li>The file name must end in <b>.png</b>. RangeSlate names maps this way for you; if you rename one, keep the <b>.png</b> at the end.</li>
   </ol>
   <p class="note" style="margin-top:12px">X4 upload page: <a id="x4open" href="http://192.168.4.1/" target="_blank" style="color:var(--accent)">192.168.4.1</a></p>
@@ -206,7 +213,24 @@ $('tSend').onclick = () => showPage('send');
 document.querySelectorAll('[data-addr]').forEach(b => { b.classList.toggle('on', b.dataset.addr === X4);
   b.onclick = () => { X4 = b.dataset.addr; try{ localStorage.setItem('x4addr', X4); }catch(e){}
     document.querySelectorAll('[data-addr]').forEach(o => o.classList.toggle('on', o === b)); setX4Links(); }; });
-function setX4Links(){ $('x4open').href = $('x4go').href = X4 + '/'; $('x4open').textContent = X4.replace('http://',''); }
+// On Android, open the X4 page in the Samsung Internet app itself: installed web apps and Chrome
+// try to use mobile data when the X4's Wi-Fi has no internet, so they can't reach the X4.
+const ANDROID = /Android/i.test(navigator.userAgent);
+function x4Href(){
+  const host = X4.replace('http://','');
+  if(!ANDROID) return X4 + '/';
+  return 'intent://' + host + '/#Intent;scheme=http;package=com.sec.android.app.sbrowser;S.browser_fallback_url=' + encodeURIComponent(X4 + '/') + ';end';
+}
+function setX4Links(){
+  $('x4open').href = $('x4go').href = x4Href(); $('x4open').textContent = X4.replace('http://','');
+  if(ANDROID){ $('x4go').removeAttribute('target'); $('x4open').removeAttribute('target'); }
+}
+$('x4copy').onclick = async () => {
+  const t = X4 + '/';
+  try{ await navigator.clipboard.writeText(t); $('x4copy').textContent = 'Copied!'; }
+  catch(e){ prompt('Copy this address:', t); }
+  setTimeout(() => $('x4copy').textContent = 'Copy address', 2000);
+};
 setX4Links();
 
 async function listMaps(){
@@ -241,7 +265,8 @@ if('serviceWorker' in navigator && location.protocol === 'https:') navigator.ser
 if(typeof L === 'undefined'){ showPage('send'); $('tMake').disabled = true; throw new Error('No internet: map maker unavailable, Send page still works'); }
 window.map = null;
 const map = window.map = L.map('map', { zoomSnap: 0.0625, zoomDelta: 0.125, wheelPxPerZoomLevel: 240, rotate: true, bearing: 0, touchRotate: true, shiftKeyRotate: true, rotateControl: false })
-  .setView([42.0909, -71.2643], 16);
+  .setView([42.25, -71.8], 8);
+map.fitBounds([[41.24, -73.51], [42.89, -69.93]]);   // start with most of Massachusetts in view
 function bearing(){ return map.getBearing ? map.getBearing() : 0; }
 function showBearing(){ let b = ((bearing() % 360) + 540) % 360 - 180; b = Math.round(b);
   $('rot').value = b; $('rotV').textContent = b + '°';
@@ -251,6 +276,19 @@ $('rot').oninput = e => { map.setBearing(+e.target.value); showBearing(); };
 $('rL').onclick = () => { map.setBearing(bearing() - 5); showBearing(); };
 $('rR').onclick = () => { map.setBearing(bearing() + 5); showBearing(); };
 $('north').onclick = () => { map.setBearing(0); showBearing(); };
+// zoom bar: shows how wide the gold box is on the ground
+function boxWidthText(){
+  const fw = $('frame').getBoundingClientRect().width, lat = map.getCenter().lat * Math.PI / 180;
+  const m = fw * 40075016.686 * Math.cos(lat) / (256 * Math.pow(2, map.getZoom()));
+  const yd = m / 0.9144;
+  return yd < 1760 ? Math.round(yd / 10) * 10 + ' yd' : (yd / 1760 < 10 ? (yd / 1760).toFixed(1) : Math.round(yd / 1760)) + ' mi';
+}
+function showZoom(){ $('zoomBar').value = map.getZoom(); $('zoomV').textContent = boxWidthText(); }
+map.on('zoom zoomend resize moveend', showZoom);
+$('zoomBar').oninput = e => { map.setZoom(+e.target.value, { animate:false }); showZoom(); };
+$('zOut').onclick = () => { map.setZoom(map.getZoom() - 0.125); };
+$('zIn').onclick  = () => { map.setZoom(map.getZoom() + 0.125); };
+setTimeout(showZoom, 0);
 const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
   { maxZoom: 20, maxNativeZoom: 19, attribution: 'Imagery © Esri' }).addTo(map);
 const street = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
