@@ -133,10 +133,10 @@
       <button data-look="solid" type="button">Solid</button>
     </div>
     <label class="ck"><input type="checkbox" id="cLabels" checked> Street &amp; place names</label>
-    <label class="ck"><input type="checkbox" id="cTrees" checked> Trees &amp; grass</label>
-    <label class="ck"><input type="checkbox" id="cBold"> Bold lines</label>
+    <label class="ck"><input type="checkbox" id="cBold" checked> Bold lines</label>
     <label class="ck"><input type="checkbox" id="cNorth" checked> North arrow</label>
-    <label class="ck"><input type="checkbox" id="cScale" checked> Scale bar (yards)</label>
+    <label class="ck"><input type="checkbox" id="cTrees"> Trees &amp; grass</label>
+    <label class="ck"><input type="checkbox" id="cScale"> Scale bar (yards)</label>
 
     <button class="primary" id="make" type="button">Create map</button>
     <div class="msg" id="msg"></div>
@@ -312,7 +312,7 @@ $('lSat').onclick = () => { map.removeLayer(street); sat.addTo(map); onSat = tru
 $('lStreet').onclick = () => { map.removeLayer(sat); street.addTo(map); onSat = false; $('lStreet').classList.add('on'); $('lSat').classList.remove('on'); syncLabels(); };
 $('lLab').onclick = () => { labelsOn = !labelsOn; syncLabels(); };
 
-const S = { landscape:true, look:'hatch', labels:true, trees:true, bold:false, north:true, scale:true };
+const S = { landscape:true, look:'hatch', labels:true, trees:false, bold:true, north:true, scale:false };
 function sizeFrame(){
   const r = $('map').getBoundingClientRect(), ar = S.landscape ? 800/480 : 480/800;
   let h = r.height*0.80, w = h*ar;
