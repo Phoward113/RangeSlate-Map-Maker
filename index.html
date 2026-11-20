@@ -58,6 +58,7 @@
   .tag{text-align:center;letter-spacing:.35em;font-weight:700;font-size:12px;color:var(--accent);margin:8px 0 6px}
   input[type=range]{accent-color:var(--accent);flex:1}
   .rot{display:flex;gap:8px;align-items:center;margin-top:8px}
+  .rot button{width:46px;height:42px;padding:0;display:grid;place-items:center;font-size:26px;line-height:1;flex:none}
   .rot output{min-width:58px;text-align:right;color:var(--accent);font-weight:700;font-variant-numeric:tabular-nums}
   #north{position:absolute;right:12px;top:12px;z-index:600;width:44px;height:44px;border-radius:50%;background:#fff;border:2px solid #222;display:grid;place-items:center;cursor:pointer;padding:0}
   #north svg{transition:transform .1s}
@@ -118,9 +119,9 @@
       <output id="zoomV">–</output>
     </div>
     <div class="rot">
-      <button id="rL" type="button" title="Rotate left">⟲</button>
+      <button id="rL" type="button" title="Rotate left 1°"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"/><path d="M3.8 3.6v4.4h4.4"/></svg></button>
       <input type="range" id="rot" min="-180" max="180" value="0" step="1">
-      <button id="rR" type="button" title="Rotate right">⟳</button>
+      <button id="rR" type="button" title="Rotate right 1°"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M20.2 3.6v4.4h-4.4"/></svg></button>
       <output id="rotV">0°</output>
     </div>
     <p class="note">Top bar zooms; the number is how wide the gold box is. Bottom bar rotates — or use two fingers on a touchscreen, or hold Shift and drag. Tap the compass to put north back up.</p>
@@ -273,8 +274,8 @@ function showBearing(){ let b = ((bearing() % 360) + 540) % 360 - 180; b = Math.
   document.querySelector('#north svg').style.transform = `rotate(${bearing()}deg)`; }
 map.on('rotate', showBearing);
 $('rot').oninput = e => { map.setBearing(+e.target.value); showBearing(); };
-$('rL').onclick = () => { map.setBearing(bearing() - 5); showBearing(); };
-$('rR').onclick = () => { map.setBearing(bearing() + 5); showBearing(); };
+$('rL').onclick = () => { map.setBearing(Math.round(bearing()) - 1); showBearing(); };
+$('rR').onclick = () => { map.setBearing(Math.round(bearing()) + 1); showBearing(); };
 $('north').onclick = () => { map.setBearing(0); showBearing(); };
 // zoom bar: shows how wide the gold box is on the ground
 function boxWidthText(){
