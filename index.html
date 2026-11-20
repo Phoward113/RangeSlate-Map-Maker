@@ -20,8 +20,24 @@
   *{box-sizing:border-box}
   [hidden]{display:none!important}
   html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:15px/1.4 system-ui,Segoe UI,Arial,sans-serif}
-  .app{display:grid;grid-template-columns:minmax(0,1fr) 380px;height:100vh}
+  .tabs{display:flex;gap:4px;height:46px;align-items:stretch;background:#000;border-bottom:1px solid var(--line);padding:0 8px}
+  .tabs button{border:0;border-radius:0;background:none;color:var(--muted);font-size:15px;padding:0 16px;border-bottom:3px solid transparent}
+  .tabs button.on{color:var(--accent);border-bottom-color:var(--accent);background:none}
+  .tabs img{height:30px;align-self:center;margin-right:6px}
+  .app{display:grid;grid-template-columns:minmax(0,1fr) 380px;height:calc(100vh - 46px)}
   @media (max-width:900px){ .app{grid-template-columns:1fr;grid-template-rows:60vh auto;height:auto} }
+  .send{max-width:760px;margin:0 auto;padding:18px 16px 60px}
+  .send h2{margin-top:22px}
+  .steps{margin:0;padding-left:20px;color:var(--text);line-height:1.6}
+  .addr{display:flex;gap:6px;flex-wrap:wrap}
+  .maps{display:grid;gap:10px;margin-top:8px}
+  .mapcard{display:grid;grid-template-columns:150px 1fr;gap:12px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px}
+  .mapcard img{width:150px;aspect-ratio:800/480;background:#fff;border-radius:4px;display:block}
+  .mapcard .nm{font-weight:700;word-break:break-all}
+  .mapcard .dt{color:var(--muted);font-size:12.5px;margin:2px 0 8px}
+  .empty{color:var(--muted);background:var(--panel);border:1px dashed var(--line);border-radius:10px;padding:18px;text-align:center}
+  input.name{width:100%;font-size:15px;padding:9px 10px;border-radius:7px;border:1px solid var(--line);background:#111;color:var(--text);margin-top:10px}
+  @media (max-width:520px){ .mapcard{grid-template-columns:1fr} .mapcard img{width:100%} }
   .mapwrap{position:relative;min-height:400px;overflow:hidden}
   #map{position:absolute;inset:0;background:#333}
   #frame{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);border:3px solid var(--accent);
@@ -65,7 +81,11 @@
 </style>
 </head>
 <body>
-<div class="app">
+<nav class="tabs">
+  <button id="tMake" class="on" type="button">Make Map</button>
+  <button id="tSend" type="button">Send to X4</button>
+</nav>
+<div class="app" id="pageMake">
   <div class="mapwrap">
     <div id="map"></div>
     <div id="frame"></div>
@@ -114,21 +134,100 @@
 
     <div id="outWrap" hidden>
       <div class="screen"><canvas id="out" width="800" height="480"></canvas></div>
+      <input class="name" id="mapName" placeholder="Map name" maxlength="40">
       <div class="row" style="margin-top:10px">
-        <button id="save" type="button" style="flex:1">Save PNG</button>
+        <button id="keep" type="button" class="on" style="flex:1">Keep for X4</button>
+        <button id="save" type="button">Save PNG</button>
         <button id="zoom" type="button">Actual size</button>
       </div>
+      <div class="msg" id="keepMsg"></div>
       <p class="note">The map is pure black and white at 800 × 480, the X4's screen held wide.</p>
     </div>
     <p class="note">Map data © OpenStreetMap contributors. Satellite © Esri.</p>
   </aside>
 </div>
+<div class="send" id="pageSend" hidden>
+  <h2>Maps kept on this phone</h2>
+  <div class="maps" id="mapList"></div>
+
+  <h2>X4 address</h2>
+  <div class="addr">
+    <button type="button" data-addr="http://192.168.4.1" class="on">192.168.4.1</button>
+    <button type="button" data-addr="http://rangeslate.local">rangeslate.local</button>
+  </div>
+  <p class="note">Try 192.168.4.1 first. Maps go into the <b>rangecard</b> folder on the X4's SD card.</p>
+
+  <h2>How to send</h2>
+  <ol class="steps">
+    <li>Make your maps on the Make Map page while you have internet, and tap <b>Keep for X4</b>.</li>
+    <li>On the X4, turn on file transfer and scan its QR code to join the X4's Wi-Fi.</li>
+    <li>Come back here and tap <b>Send to X4</b> on a map.</li>
+    <li>A page from the X4 opens. <b>"File uploaded successfully"</b> means it worked. If your phone warns the page "isn't secure", choose to send anyway — the X4 only talks over its own Wi-Fi.</li>
+  </ol>
+  <p class="note" style="margin-top:12px">Backup: <a id="x4open" href="http://192.168.4.1/" target="_blank" style="color:var(--accent)">open the X4's own upload page</a> and upload a saved PNG by hand.</p>
+</div>
+<form id="xform" method="post" enctype="multipart/form-data" target="_blank" hidden><input type="file" name="file" id="xfile"></form>
 <div id="zoomBox" hidden><div class="in"><button id="zclose" type="button">Close</button><canvas id="zc" width="800" height="480"></canvas></div></div>
 
 <script>
-/* ================= Map + frame ================= */
+/* ================= Send to X4 page (works offline) ================= */
 const $ = id => document.getElementById(id);
-const map = L.map('map', { zoomSnap: 0.0625, zoomDelta: 0.125, wheelPxPerZoomLevel: 240, rotate: true, bearing: 0, touchRotate: true, shiftKeyRotate: true, rotateControl: false })
+const DB = { db:null,
+  open(){ return this.db || (this.db = new Promise((ok, bad) => { const r = indexedDB.open('rangeslate', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('maps', { keyPath:'id' }); r.onsuccess = () => ok(r.result); r.onerror = () => bad(r.error); })); },
+  async tx(mode, fn){ const db = await this.open(); return new Promise((ok, bad) => { const t = db.transaction('maps', mode), st = t.objectStore('maps'); const out = fn(st);
+    t.oncomplete = () => ok(out && out.result); t.onerror = () => bad(t.error); }); },
+  put(m){ return this.tx('readwrite', st => st.put(m)); },
+  del(id){ return this.tx('readwrite', st => st.delete(id)); },
+  all(){ return this.tx('readonly', st => st.getAll()); },
+};
+let X4 = 'http://192.168.4.1';
+try{ X4 = localStorage.getItem('x4addr') || X4; }catch(e){}
+function cleanName(n){ n = (n || '').trim().replace(/\.png$/i,'').replace(/[^A-Za-z0-9 _-]/g,'').replace(/\s+/g,'-').slice(0,40); return (n || 'map') + '.png'; }
+function showPage(which){
+  $('pageMake').hidden = which !== 'make'; $('pageSend').hidden = which !== 'send';
+  $('tMake').classList.toggle('on', which === 'make'); $('tSend').classList.toggle('on', which === 'send');
+  if(which === 'send') listMaps(); else if(window.map) setTimeout(() => map.invalidateSize(), 50);
+}
+$('tMake').onclick = () => showPage('make');
+$('tSend').onclick = () => showPage('send');
+document.querySelectorAll('[data-addr]').forEach(b => { b.classList.toggle('on', b.dataset.addr === X4);
+  b.onclick = () => { X4 = b.dataset.addr; try{ localStorage.setItem('x4addr', X4); }catch(e){}
+    document.querySelectorAll('[data-addr]').forEach(o => o.classList.toggle('on', o === b)); $('x4open').href = X4 + '/'; }; });
+$('x4open').href = X4 + '/';
+
+async function listMaps(){
+  const box = $('mapList'); let maps = [];
+  try{ maps = (await DB.all()) || []; }catch(e){ box.innerHTML = '<div class="empty">This browser won\'t let RangeSlate keep maps. Use Save PNG instead.</div>'; return; }
+  maps.sort((a,b) => b.made - a.made);
+  if(!maps.length){ box.innerHTML = '<div class="empty">No maps kept yet. Make one on the Make Map page and tap <b>Keep for X4</b>.</div>'; return; }
+  box.innerHTML = '';
+  for(const m of maps){
+    const url = URL.createObjectURL(m.blob), card = document.createElement('div'); card.className = 'mapcard';
+    card.innerHTML = `<img alt=""><div><div class="nm"></div><div class="dt"></div><div class="row">
+      <button type="button" class="on" data-a="send">Send to X4</button><button type="button" data-a="dl">Save PNG</button><button type="button" data-a="del">Delete</button></div></div>`;
+    card.querySelector('img').src = url; card.querySelector('.nm').textContent = m.name;
+    card.querySelector('.dt').textContent = new Date(m.made).toLocaleString();
+    card.querySelector('[data-a=send]').onclick = () => sendToX4(m);
+    card.querySelector('[data-a=dl]').onclick = () => { const a = document.createElement('a'); a.href = url; a.download = m.name; document.body.appendChild(a); a.click(); a.remove(); };
+    card.querySelector('[data-a=del]').onclick = async () => { await DB.del(m.id); listMaps(); };
+    box.appendChild(card);
+  }
+}
+function sendToX4(m){
+  // Sent as an ordinary upload form, which the X4's own page accepts; the X4 answers in a new tab.
+  const f = new File([m.blob], m.name, { type:'image/png' }), dt = new DataTransfer(); dt.items.add(f);
+  $('xfile').files = dt.files;
+  $('xform').action = X4 + '/upload?path=' + encodeURIComponent('/rangecard');
+  $('xform').submit();
+}
+if('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+<script>
+/* ================= Map + frame ================= */
+if(typeof L === 'undefined'){ showPage('send'); $('tMake').disabled = true; throw new Error('No internet: map maker unavailable, Send page still works'); }
+window.map = null;
+const map = window.map = L.map('map', { zoomSnap: 0.0625, zoomDelta: 0.125, wheelPxPerZoomLevel: 240, rotate: true, bearing: 0, touchRotate: true, shiftKeyRotate: true, rotateControl: false })
   .setView([42.0909, -71.2643], 16);
 function bearing(){ return map.getBearing ? map.getBearing() : 0; }
 function showBearing(){ let b = ((bearing() % 360) + 540) % 360 - 180; b = Math.round(b);
@@ -253,6 +352,8 @@ $('make').onclick = async () => {
     lastData = await fetchOSM(g); lastGeo = g;
     render();
     msg.className = 'msg ok'; msg.textContent = 'Done. ' + Math.round(widthM) + ' m across.';
+    if(!$('mapName').value) $('mapName').value = 'map-' + new Date().toISOString().slice(0,16).replace(/[:T]/g,'-');
+    $('keepMsg').textContent = '';
   }catch(e){
     msg.className = 'msg err'; msg.textContent = 'Could not get map data. Check your internet connection, wait a minute, and try again.';
   }finally{ $('make').disabled = false; }
@@ -640,10 +741,19 @@ function pathLabel(x, label, pieces, tw, h, fits, taken){
   return false;
 }
 
+/* ================= Keep for X4 ================= */
+$('keep').onclick = async () => {
+  const name = cleanName($('mapName').value), msg = $('keepMsg');
+  try{
+    const blob = await new Promise(r => $('out').toBlob(r, 'image/png'));
+    await DB.put({ id: Date.now() + '-' + Math.random().toString(36).slice(2,6), name, made: Date.now(), blob });
+    msg.className = 'msg ok'; msg.textContent = 'Kept as ' + name + '. Find it on the Send to X4 page.';
+  }catch(e){ msg.className = 'msg err'; msg.textContent = 'Could not keep the map on this device. Use Save PNG instead.'; }
+};
 /* ================= Save / zoom ================= */
 $('save').onclick = () => {
   const a = document.createElement('a');
-  a.download = 'rangeslate-map-' + new Date().toISOString().slice(0,16).replace(/[:T]/g,'-') + '.png';
+  a.download = cleanName($('mapName').value);
   a.href = $('out').toDataURL('image/png'); document.body.appendChild(a); a.click(); a.remove();
 };
 $('zoom').onclick = () => { $('zc').getContext('2d').drawImage($('out'),0,0); $('zoomBox').hidden = false; };
